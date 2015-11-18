@@ -1,35 +1,101 @@
 name: "ActivityNet"
 layer {
-  name: "actitracker"
+  name: "actitracker_x"
   type: "HDF5Data"
-  top: "data"
-  top: "label"
+  top: "data_x"
+  top: "label_x"
   include {
     phase: TRAIN
   }
   hdf5_data_param {
-    source: "/home/users/wxie/activity/actitracker_data_list.txt"
+    source: "/home/users/wxie/activity/actitracker_x_data_list.txt"
     batch_size: 200
   }
 }
 layer {
-  name: "actitracker"
+  name: "actitracker_y"
   type: "HDF5Data"
-  top: "data"
-  top: "label"
+  top: "data_y"
+  top: "label_y"
+  include {
+    phase: TRAIN
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_y_data_list.txt"
+    batch_size: 200
+  }
+}
+layer {
+  name: "actitracker_z"
+  type: "HDF5Data"
+  top: "data_z"
+  top: "label_z"
+  include {
+    phase: TRAIN
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_z_data_list.txt"
+    batch_size: 200
+  }
+}
+
+layer {
+  name: "actitracker_x"
+  type: "HDF5Data"
+  top: "data_x"
+  top: "label_x"
   include {
     phase: TEST
   }
   hdf5_data_param {
-    source: "/home/users/wxie/activity/actitracker_data_list.txt"
+    source: "/home/users/wxie/activity/actitracker_x_data_list.txt"
     batch_size: 200
   }
 }
 layer {
-  name: "conv1"
+  name: "actitracker_y"
+  type: "HDF5Data"
+  top: "data_y"
+  top: "label_y"
+  include {
+    phase: TEST
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_y_data_list.txt"
+    batch_size: 200
+  }
+}
+layer {
+  name: "actitracker_z"
+  type: "HDF5Data"
+  top: "data_z"
+  top: "label_z"
+  include {
+    phase: TEST
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_z_data_list.txt"
+    batch_size: 200
+  }
+}
+
+layer {
+  name: "label_concat"
+  bottom: "label_x"
+  bottom: "label_y"
+  bottom: "label_z"
+  top: "label_concat"
+  type: "Concat"
+  concat_param {
+    axis: 0
+  }
+}
+
+layer {
+  name: "conv1_x"
   type: "Convolution"
-  bottom: "data"
-  top: "conv1"
+  bottom: "data_x"
+  top: "conv1_x"
   param {
     lr_mult: 1
   }
@@ -50,10 +116,10 @@ layer {
   }
 }
 layer {
-  name: "pool"
+  name: "pool1_x"
   type: "Pooling"
-  bottom: "conv1"
-  top: "pool1"
+  bottom: "conv1_x"
+  top: "pool1_x"
   pooling_param {
     pool: MAX
     kernel_h: 1
@@ -61,10 +127,98 @@ layer {
     stride: 3
   }
 }
+
+layer {
+  name: "conv1_y"
+  type: "Convolution"
+  bottom: "data_y"
+  top: "conv1_y"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  convolution_param {
+    num_output: 3
+    kernel_h: 1
+    kernel_w: 20
+    stride: 1
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "pool1_y"
+  type: "Pooling"
+  bottom: "conv1_y"
+  top: "pool1_y"
+  pooling_param {
+    pool: MAX
+    kernel_h: 1
+    kernel_w: 3
+    stride: 3
+  }
+}
+
+layer {
+  name: "conv1_z"
+  type: "Convolution"
+  bottom: "data_z"
+  top: "conv1_z"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  convolution_param {
+    num_output: 3
+    kernel_h: 1
+    kernel_w: 20
+    stride: 1
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "pool1_z"
+  type: "Pooling"
+  bottom: "conv1_z"
+  top: "pool1_z"
+  pooling_param {
+    pool: MAX
+    kernel_h: 1
+    kernel_w: 3
+    stride: 3
+  }
+}
+
+layer {
+  name: "concat"
+  bottom: "pool1_x"
+  bottom: "pool1_y"
+  bottom: "pool1_z"
+  top: "concat"
+  type: "Concat"
+  concat_param {
+    axis: 0
+  }
+}
+
+
 layer {
   name: "ip1"
   type: "InnerProduct"
-  bottom: "pool1"
+  bottom: "concat"
   top: "ip1"
   param {
     lr_mult: 1
@@ -113,7 +267,7 @@ layer {
   name: "accuracy"
   type: "Accuracy"
   bottom: "ip2"
-  bottom: "label"
+  bottom: "label_concat"
   top: "accuracy"
   include {
     phase: TEST
@@ -123,6 +277,6 @@ layer {
   name: "loss"
   type: "SoftmaxWithLoss"
   bottom: "ip2"
-  bottom: "label"
+  bottom: "label_concat"
   top: "loss"
 }

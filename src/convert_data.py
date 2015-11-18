@@ -7,7 +7,8 @@ import sys
 
 
 data_path = "/home/users/wxie/activity/data/actitracker.txt"
-output_name = 'actitracker'
+channel = 'z'
+output_name = 'actitracker_' + channel
 
 percent_overlap = 0.50
 
@@ -90,7 +91,15 @@ with open(data_path, 'rt') as f:
             prev_label = label
             x_list = []
 
-        x_list.append(x)
+        if (channel == 'x'):
+            x_list.append(x)
+        elif (channel == 'y'):
+            x_list.append(y)
+        elif (channel == 'z'):
+            x_list.append(z)
+        else:
+            print("ERROR: no invalid channel")
+            sys.exit()
 
         # Store when we have the length
         if (len(x_list) >= width):
@@ -104,8 +113,8 @@ print(data.shape)
 print(data_label.shape)
 
 with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
-    f['data'] = data
-    f['label'] = data_label
+    f['data_' + channel] = data
+    f['label_' + channel] = data_label
 
 with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
     f.write(file_dir + '/../' + output_name + '_data.h5\n')
