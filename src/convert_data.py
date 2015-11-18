@@ -5,11 +5,13 @@ import h5py
 import csv
 import sys
 
-file_dir = os.path.dirname(os.path.abspath(__file__))
-print(file_dir)
-data_path = "/home/users/wxie/activity/data/actitracker_2.txt"
+
+data_path = "/home/users/wxie/activity/data/actitracker.txt"
+output_name = 'actitracker'
 
 percent_overlap = 0.50
+
+file_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Caffe blobs have the dimensions (n_samples, n_channels, height, width)
 # Count lines
@@ -101,11 +103,11 @@ with open(data_path, 'rt') as f:
 print(data.shape)
 print(data_label.shape)
 
-with h5py.File(file_dir + '/../actitracker_data.h5', 'w') as f:
+with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
     f['data'] = data
     f['label'] = data_label
 
-with open(file_dir + '/../actitracker_data_list.txt', 'w') as f:
-    f.write(file_dir + '/../actitracker_data.h5\n')
+with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
+    f.write(file_dir + '/../' + output_name + '_data.h5\n')
 
 print("Done.")
