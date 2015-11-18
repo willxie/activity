@@ -10,7 +10,6 @@ Run classifier:
 
 `
 $ /path/to/caffe/build/tools/caffe train --solver=activitynet_solver.prototxt
-
-# For me
+### For me
 $ ~/caffe/build/tools/caffe train --solver=activitynet_solver.prototxt
 `
