@@ -9,6 +9,8 @@ file_dir = os.path.dirname(os.path.abspath(__file__))
 print(file_dir)
 data_path = "/home/users/wxie/activity/data/actitracker_2.txt"
 
+percent_overlap = 0.50
+
 # Caffe blobs have the dimensions (n_samples, n_channels, height, width)
 # Count lines
 num_lines = 0
@@ -36,16 +38,14 @@ with open(data_path, 'rt') as f:
         # Store when we have the length
         if (len(x_list) >= width):
             data_index += 1
-            x_list = []
+            x_list = x_list[int(len(x_list) * (1.0-percent_overlap)):] ###
     num_samples = data_index
     num_lines = line_count
 
 print("Number of data points: {}".format(num_lines))
-print("Number of data segments: {}".format(num_samples))
+print("Number of data samples: {}".format(num_samples))
 
 total_size = num_samples * num_channels * height * width
-
-
 
 data = np.arange(total_size)
 data = data.reshape(num_samples, num_channels, height, width)
@@ -53,6 +53,14 @@ data = data.astype('float32')
 
 data_label = 1 + np.arange(num_samples)[:, np.newaxis]
 data_label = data_label.astype('int32')
+
+label_dict =  {
+                "Walking":0,
+                "Jogging":1,
+                "Sitting":2,
+                "Standing":3,
+                "Upstairs":4,
+                "Downstairs":5 }
 
 with open(data_path, 'rt') as f:
     reader = csv.reader(f)
@@ -85,13 +93,19 @@ with open(data_path, 'rt') as f:
         # Store when we have the length
         if (len(x_list) >= width):
             data[data_index][channel_index][0] = np.array(x_list)
-            data_label[data_index] = np.array([hash(label)])
+            data_label[data_index] = np.array([label_dict[label]])
             data_index += 1
-            x_list = [] ###
+            x_list = x_list[int(len(x_list) * (1.0-percent_overlap)):] ###
     print(data_index)
 
-with h5py.File(file_dir + '/../sample_data.h5', 'w') as f:
+print(data.shape)
+print(data_label.shape)
+
+with h5py.File(file_dir + '/../actitracker_data.h5', 'w') as f:
     f['data'] = data
     f['label'] = data_label
+
+with open(file_dir + '/../actitracker_data_list.txt', 'w') as f:
+    f.write(file_dir + '/../actitracker_data.h5\n')
 
 print("Done.")
