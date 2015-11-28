@@ -1,61 +1,10 @@
-# Converts
+# Converts actitracker dataset into HDF5 format to be fed into caffe
 import os
 import numpy as np
 import h5py
 import csv
 import sys
-
-
-data_path = "/home/users/wxie/activity/data/actitracker.txt"
-channel = 'z'
-output_name = 'actitracker_' + channel
-
-percent_overlap = 0.50
-
-file_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Caffe blobs have the dimensions (n_samples, n_channels, height, width)
-# Count lines
-num_lines = 0
-num_samples = 0
-num_channels = 1
-height = 1
-width = 64
-# num_samples = num_lines / width
-
-with open(data_path, 'rt') as f:
-    reader = csv.reader(f)
-    prev_label = " "
-    line_count = 0
-    data_index = 0
-    x_list = []
-    for row in reader:
-        line_count += 1
-        label = row[1]
-        # Reset when new label is found
-        if (prev_label != label):
-            prev_label = label
-            x_list = []
-        x_list.append(1)
-
-        # Store when we have the length
-        if (len(x_list) >= width):
-            data_index += 1
-            x_list = x_list[int(len(x_list) * (1.0-percent_overlap)):] ###
-    num_samples = data_index
-    num_lines = line_count
-
-print("Number of data points: {}".format(num_lines))
-print("Number of data samples: {}".format(num_samples))
-
-total_size = num_samples * num_channels * height * width
-
-data = np.arange(total_size)
-data = data.reshape(num_samples, num_channels, height, width)
-data = data.astype('float32')
-
-data_label = 1 + np.arange(num_samples)[:, np.newaxis]
-data_label = data_label.astype('int32')
+from random import shuffle
 
 label_dict =  {
                 "Walking":0,
@@ -64,59 +13,127 @@ label_dict =  {
                 "Standing":3,
                 "Upstairs":4,
                 "Downstairs":5 }
+channels = ['x', 'y', 'z']
+data_path = "/home/users/wxie/activity/data/actitracker.txt"
+dataset_prefix = 'actitracker_'
 
+# Percent overlap between subsequent samples
+percent_overlap = 0.50
+
+file_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Caffe blobs have the dimensions (n_samples, n_channels, height, width)
+num_lines = 0
+num_samples = 0
+num_channels = 1
+height = 1
+width = 64
+
+# Count the number of samples to allocate memory
 with open(data_path, 'rt') as f:
     reader = csv.reader(f)
     prev_label = " "
+    line_count = 0
     data_index = 0
-    channel_index = 0
-    counter = 0
-    x_list = []
-    y_list = []
-    z_list = []
+    current_sample = []
     for row in reader:
-        if not row:
-            continue
-        # print(counter)
-        counter += 1
-        user_id = int(row[0])
+        line_count += 1
         label = row[1]
-        x = float(row[3])
-        y = float(row[4])
-        z = float(row[5])
-        # print("user_id: {}\t label: {}\t x: {}\t y: {}\t z: {}".format(user_id, label, x, y, z))
-
         # Reset when new label is found
         if (prev_label != label):
             prev_label = label
-            x_list = []
-
-        if (channel == 'x'):
-            x_list.append(x)
-        elif (channel == 'y'):
-            x_list.append(y)
-        elif (channel == 'z'):
-            x_list.append(z)
-        else:
-            print("ERROR: no invalid channel")
-            sys.exit()
+            current_sample = []
+        current_sample.append(1)
 
         # Store when we have the length
-        if (len(x_list) >= width):
-            data[data_index][channel_index][0] = np.array(x_list)
-            data_label[data_index] = np.array([label_dict[label]])
+        if (len(current_sample) >= width):
             data_index += 1
-            x_list = x_list[int(len(x_list) * (1.0-percent_overlap)):] ###
-    print(data_index)
+            current_sample = current_sample[int(len(current_sample) * (1.0-percent_overlap)):] ###
+    num_samples = data_index
+    num_lines = line_count
 
-print(data.shape)
-print(data_label.shape)
+print("Number of data points: {}".format(num_lines))
+print("Number of data samples: {}".format(num_samples))
 
-with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
-    f['data_' + channel] = data
-    f['label_' + channel] = data_label
+total_size = num_samples * num_channels * height * width
 
-with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
-    f.write(file_dir + '/../' + output_name + '_data.h5\n')
+# Shuffle! Not applied until end of the for-loop
+shuffled_index = range(num_samples)
+shuffle(shuffled_index)
+
+# Process each channel
+for channel in channels:
+    print("Channel " + channel)
+    output_name = dataset_prefix + channel
+
+    data = np.arange(total_size)
+    data = data.reshape(num_samples, num_channels, height, width)
+    data = data.astype('float32')
+
+    data_label = 1 + np.arange(num_samples)[:, np.newaxis]
+    data_label = data_label.astype('int32')
+
+    # This list stores all current_sample (huge!)
+    sample_list = [] # List of lists
+    label_list  = [] # List
+
+    # Segment points to samples
+    with open(data_path, 'rt') as f:
+        reader = csv.reader(f)
+        prev_label = " "
+        current_sample = []
+        for row in reader:
+            if not row:
+                continue
+            user_id = int(row[0])
+            label = row[1]
+            x = float(row[3])
+            y = float(row[4])
+            z = float(row[5])
+
+            # Reset when new label is found
+            if (prev_label != label):
+                prev_label = label
+                current_sample = []
+
+            if (channel == 'x'):
+                current_sample.append(x)
+            elif (channel == 'y'):
+                current_sample.append(y)
+            elif (channel == 'z'):
+                current_sample.append(z)
+            else:
+                print("ERROR: no invalid channel")
+                sys.exit()
+
+            # Store when we have the length
+            if (len(current_sample) >= width):
+                sample_list.append(current_sample)
+                label_list.append(label)
+                # Shrink current sample based on the overlap ratio
+                current_sample = current_sample[int(len(current_sample) * (1.0-percent_overlap)):]
+        # print(data_index)
+
+    data_index = 0
+    channel_index = 0
+
+    # Shuffle after segmenting points into samples
+    for i in shuffled_index:
+        data[data_index][channel_index][0] = np.array(sample_list[i])
+        data_label[data_index] = np.array([label_dict[label_list[i]]])
+        data_index += 1
+
+    print(data.shape)
+    print(data_label.shape)
+
+    # Save
+    with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
+        f['data_' + channel] = data
+        f['label_' + channel] = data_label
+
+    with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
+        f.write(file_dir + '/../' + output_name + '_data.h5\n')
+
+
 
 print("Done.")

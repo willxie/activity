@@ -20,6 +20,6 @@ display: 100
 max_iter: 10000
 # snapshot intermediate results
 snapshot: 5000
-snapshot_prefix: "/home/users/wxie/activity/model/"
+snapshot_prefix: "/home/users/wxie/activity/model_1000/actitracker"
 # solver mode: CPU or GPU
 solver_mode: GPU
