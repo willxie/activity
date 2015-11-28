@@ -16,6 +16,7 @@ label_dict =  {
 channels = ['x', 'y', 'z']
 data_path = "/home/users/wxie/activity/data/actitracker.txt"
 dataset_prefix = 'actitracker_'
+to_shuffle = True
 
 # Percent overlap between subsequent samples
 percent_overlap = 0.50
@@ -59,7 +60,8 @@ total_size = num_samples * num_channels * height * width
 
 # Shuffle! Not applied until end of the for-loop
 shuffled_index = range(num_samples)
-shuffle(shuffled_index)
+if to_shuffle:
+    shuffle(shuffled_index)
 
 # Process each channel
 for channel in channels:
