@@ -4,7 +4,7 @@ Install caffe by following the instructions:
 
 http://caffe.berkeleyvision.org/installation.html
 
-Make sure that the 'solver_mode' in 'activitynet_solver.prototxt' is set to the correct hardware configuration (CPU or GPU).
+Make sure that `solver_mode` in `activitynet_solver.prototxt` is set to the correct hardware configuration (CPU or GPU).
 
 Process actitracker dataset into hdf5 format:
 
