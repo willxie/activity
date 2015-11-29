@@ -1,5 +1,5 @@
 # The train/test net protocol buffer definition
-net: "/home/users/wxie/activity/activitynet.prototxt"
+net: "/home/users/wxie/activity/activitynet_train.prototxt"
 # test_iter specifies how many forward passes the test should carry out.
 # In the case of MNIST, we have test batch size 100 and 100 test iterations,
 # covering the full 10,000 testing images.
@@ -17,9 +17,9 @@ power: 0.75
 # Display every 100 iterations
 display: 100
 # The maximum number of iterations
-max_iter: 100000
+max_iter: 500000
 # snapshot intermediate results
 snapshot: 5000
-snapshot_prefix: "/home/users/wxie/activity/model_1000/actitracker"
+snapshot_prefix: "/home/users/wxie/activity/model/actitracker"
 # solver mode: CPU or GPU
 solver_mode: GPU
