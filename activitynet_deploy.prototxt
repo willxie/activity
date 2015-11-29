@@ -23,58 +23,6 @@ input_shape {
 }
 
 layer {
-  name: "actitracker_x"
-  type: "HDF5Data"
-  top: "data_x"
-  top: "label_x"
-  include {
-    phase: TEST
-  }
-  hdf5_data_param {
-    source: "/home/users/wxie/activity/actitracker_x_data_list.txt"
-    batch_size: 200
-  }
-}
-layer {
-  name: "actitracker_y"
-  type: "HDF5Data"
-  top: "data_y"
-  top: "label_y"
-  include {
-    phase: TEST
-  }
-  hdf5_data_param {
-    source: "/home/users/wxie/activity/actitracker_y_data_list.txt"
-    batch_size: 200
-  }
-}
-layer {
-  name: "actitracker_z"
-  type: "HDF5Data"
-  top: "data_z"
-  top: "label_z"
-  include {
-    phase: TEST
-  }
-  hdf5_data_param {
-    source: "/home/users/wxie/activity/actitracker_z_data_list.txt"
-    batch_size: 200
-  }
-}
-
-layer {
-  name: "label_concat"
-  bottom: "label_x"
-  bottom: "label_y"
-  bottom: "label_z"
-  top: "label_concat"
-  type: "Concat"
-  concat_param {
-    axis: 0
-  }
-}
-
-layer {
   name: "conv1_x"
   type: "Convolution"
   bottom: "data_x"

@@ -21,7 +21,7 @@ label_dict =  {
                 "Downstairs":5 }
 
 # Percent overlap between subsequent samples
-percent_overlap = 0.50
+percent_overlap = 0.75
 
 # Filter param
 height = 1
@@ -50,10 +50,11 @@ def process_data(file_path):
             if row[0] == '\n':
                 continue
 
-            current_sample_x.append(float(row[1]) * 10)
-            current_sample_y.append(float(row[2]) * 10)
-            current_sample_z.append(float(row[3]) * 10)
+            current_sample_x.append(float(row[1]) * -10)
+            current_sample_y.append(float(row[2]) * -10)
+            current_sample_z.append(float(row[3]) * -10)
             if (len(current_sample_x) >= width):
+
                 sample_list_x.append(current_sample_x)
                 sample_list_y.append(current_sample_y)
                 sample_list_z.append(current_sample_z)
@@ -67,7 +68,7 @@ def main(argv):
     pycaffe_dir = os.path.dirname(__file__)
     caffe_root = '../'
 
-    test_data_path = caffe_root + "data/test/"
+    test_data_path = caffe_root + "data/test/will/"
 
     # Grab all the files from test dir
     file_name_list = []
@@ -81,10 +82,12 @@ def main(argv):
                     caffe.TEST)
 
     for file_name in file_name_list:
-        print("====================")
-        print(file_name)
-        print("====================")
         sample_list_x, sample_list_y, sample_list_z = process_data(test_data_path + file_name)
+
+        print("====================")
+        print(file_name + "     |    sample size: {}".format(len(sample_list_x)))
+        print("====================")
+
 
         # Trim the first and last 3 seconds (2 samples)
         sample_list_x = sample_list_x[2:len(sample_list_x) - 2]
@@ -105,6 +108,7 @@ def main(argv):
                 if value == out['prob'][0].argmax():
                     # print("Predicted class is #{}.".format(out['prob'][0].argmax()))
                     print("Predicted class is " + key)
+                    print(out['prob'][0])
 
 
 if __name__ == '__main__':
