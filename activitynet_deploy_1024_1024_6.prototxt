@@ -173,6 +173,7 @@ layer {
   bottom: "ip1"
   top: "ip1"
 }
+
 layer {
   name: "ip2"
   type: "InnerProduct"
@@ -185,7 +186,35 @@ layer {
     lr_mult: 2
   }
   inner_product_param {
-    num_output: 30
+    num_output: 1024
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "relu2"
+  type: "ReLU"
+  bottom: "ip2"
+  top: "ip2"
+}
+
+layer {
+  name: "ip3"
+  type: "InnerProduct"
+  bottom: "ip2"
+  top: "ip3"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 6
     weight_filler {
       type: "xavier"
     }
@@ -198,6 +227,6 @@ layer {
 layer {
   name: "prob"
   type: "Softmax"
-  bottom: "ip2"
+  bottom: "ip3"
   top: "prob"
 }

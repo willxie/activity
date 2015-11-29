@@ -263,6 +263,7 @@ layer {
     }
   }
 }
+
 layer {
   name: "accuracy"
   type: "Accuracy"
