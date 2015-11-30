@@ -1,25 +1,94 @@
 name: "ActivityNet"
+layer {
+  name: "actitracker_x"
+  type: "HDF5Data"
+  top: "data_x"
+  top: "label_x"
+  include {
+    phase: TRAIN
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_x_data_list.txt"
+    batch_size: 200
+  }
+}
+layer {
+  name: "actitracker_y"
+  type: "HDF5Data"
+  top: "data_y"
+  top: "label_y"
+  include {
+    phase: TRAIN
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_y_data_list.txt"
+    batch_size: 200
+  }
+}
+layer {
+  name: "actitracker_z"
+  type: "HDF5Data"
+  top: "data_z"
+  top: "label_z"
+  include {
+    phase: TRAIN
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_z_data_list.txt"
+    batch_size: 200
+  }
+}
 
-input: "data_x"
-input_shape {
-    dim:50
-    dim:1
-    dim:1
-    dim:64
+layer {
+  name: "actitracker_x"
+  type: "HDF5Data"
+  top: "data_x"
+  top: "label_x"
+  include {
+    phase: TEST
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_x_data_list.txt"
+    batch_size: 200
+  }
 }
-input: "data_y"
-input_shape {
-    dim:50
-    dim:1
-    dim:1
-    dim:64
+layer {
+  name: "actitracker_y"
+  type: "HDF5Data"
+  top: "data_y"
+  top: "label_y"
+  include {
+    phase: TEST
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_y_data_list.txt"
+    batch_size: 200
+  }
 }
-input: "data_z"
-input_shape {
-    dim:50
-    dim:1
-    dim:1
-    dim:64
+layer {
+  name: "actitracker_z"
+  type: "HDF5Data"
+  top: "data_z"
+  top: "label_z"
+  include {
+    phase: TEST
+  }
+  hdf5_data_param {
+    source: "/home/users/wxie/activity/actitracker_z_data_list.txt"
+    batch_size: 200
+  }
+}
+
+layer {
+  name: "label_concat"
+  bottom: "label_x"
+  bottom: "label_y"
+  bottom: "label_z"
+  top: "label_concat"
+  type: "Concat"
+  concat_param {
+    axis: 0
+  }
 }
 
 layer {
@@ -173,15 +242,7 @@ layer {
   bottom: "ip1"
   top: "ip1"
 }
-layer {
-  name: "drop1"
-  type: "Dropout"
-  bottom: "ip1"
-  top: "ip1"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
+
 layer {
   name: "ip2"
   type: "InnerProduct"
@@ -209,15 +270,7 @@ layer {
   bottom: "ip2"
   top: "ip2"
 }
-layer {
-  name: "drop2"
-  type: "Dropout"
-  bottom: "ip2"
-  top: "ip2"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
+
 layer {
   name: "ip3"
   type: "InnerProduct"
@@ -241,8 +294,19 @@ layer {
 }
 
 layer {
-  name: "prob"
-  type: "Softmax"
+  name: "accuracy"
+  type: "Accuracy"
   bottom: "ip3"
-  top: "prob"
+  bottom: "label_concat"
+  top: "accuracy"
+  include {
+    phase: TEST
+  }
+}
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "ip3"
+  bottom: "label_concat"
+  top: "loss"
 }

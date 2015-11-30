@@ -120,15 +120,15 @@ def main(argv):
             file_name_list.append(file)
 
     # Setup net and weight
-    net = caffe.Net(caffe_root + 'activitynet_deploy_1024_6.prototxt',
-                    caffe_root + 'model_6/actitracker_iter_125000.caffemodel',
+    net = caffe.Net(caffe_root + 'activitynet_deploy.prototxt',
+                    caffe_root + 'model_1024_30_6_with_dropout/actitracker_iter_210000.caffemodel',
                     caffe.TEST)
 
     # For testing the activitynet only
-    file_name_list = ["1"]
+    # file_name_list = ["1"]
     for file_name in file_name_list:
-        # sample_list_x, sample_list_y, sample_list_z = process_data(test_data_path + file_name)
-        sample_list_x, sample_list_y, sample_list_z = process_data_theirs(caffe_root + "data/actitracker.txt")
+        sample_list_x, sample_list_y, sample_list_z = process_data(test_data_path + file_name)
+        # sample_list_x, sample_list_y, sample_list_z = process_data_theirs(caffe_root + "data/actitracker.txt")
 
         print("====================")
         print(file_name + "     |     sample size: {}".format(len(sample_list_x)))
