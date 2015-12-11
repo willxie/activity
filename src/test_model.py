@@ -22,7 +22,7 @@ percent_overlap = 0.50
 height = 1
 width = 64
 
-def process_data(file_path):
+def process_data_ours(file_path):
     sample_list_x = [] # List of lists
     sample_list_y = [] # List of lists
     sample_list_z = [] # List of lists
@@ -111,7 +111,7 @@ def main(argv):
     pycaffe_dir = os.path.dirname(__file__)
     caffe_root = '../'
 
-    test_data_path = caffe_root + "data/test/will/"
+    test_data_path = caffe_root + "data/test/richard/"
 
     # Grab all the files from test dir
     file_name_list = []
@@ -121,13 +121,13 @@ def main(argv):
 
     # Setup net and weight
     net = caffe.Net(caffe_root + 'activitynet_deploy.prototxt',
-                    caffe_root + 'model_1024_30_6_with_dropout/actitracker_iter_210000.caffemodel',
+                    caffe_root + 'model_combined_1024_30_6_with_dropout/actitracker_iter_100000.caffemodel',
                     caffe.TEST)
 
     # For testing the activitynet only
     # file_name_list = ["1"]
     for file_name in file_name_list:
-        sample_list_x, sample_list_y, sample_list_z = process_data(test_data_path + file_name)
+        sample_list_x, sample_list_y, sample_list_z = process_data_ours(test_data_path + file_name)
         # sample_list_x, sample_list_y, sample_list_z = process_data_theirs(caffe_root + "data/actitracker.txt")
 
         print("====================")

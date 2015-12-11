@@ -17,9 +17,9 @@ power: 0.75
 # Display every 100 iterations
 display: 100
 # The maximum number of iterations
-max_iter: 50000
+max_iter: 500000
 # snapshot intermediate results
-snapshot: 5000
-snapshot_prefix: "/home/users/wxie/activity/model_1024_30_6_with_dropout_2/actitracker"
+snapshot: 10000
+snapshot_prefix: "/home/users/wxie/activity/model_combined_1024_30_6_with_dropout/actitracker"
 # solver mode: CPU or GPU
 solver_mode: GPU

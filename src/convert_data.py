@@ -6,8 +6,7 @@ import csv
 import sys
 from random import shuffle
 
-label_dict =  {
-                "Walking":0,
+label_dict =  {"Walking":0,
                 "Jogging":1,
                 "Sitting":2,
                 "Standing":3,
@@ -17,6 +16,7 @@ channels = ['x', 'y', 'z']
 data_path = "/home/users/wxie/activity/data/actitracker.txt"
 dataset_prefix = 'actitracker_'
 to_shuffle = True
+merge_datasets = False
 
 # Percent overlap between subsequent samples
 percent_overlap = 0.50
@@ -24,71 +24,85 @@ percent_overlap = 0.50
 file_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Caffe blobs have the dimensions (n_samples, n_channels, height, width)
-num_lines = 0
-num_samples = 0
 num_channels = 1
 height = 1
 width = 64
 
-# Count the number of samples to allocate memory
-with open(data_path, 'rt') as f:
-    reader = csv.reader(f)
-    prev_label = " "
-    line_count = 0
-    data_index = 0
-    current_sample = []
-    for row in reader:
-        line_count += 1
-        label = row[1]
-        # Reset when new label is found
-        if (prev_label != label):
-            prev_label = label
-            current_sample = []
-        current_sample.append(1)
+# Trim our dataset front because it time to take phone in / out of pocket
+num_seconds_skipped = 3
 
-        # Store when we have the length
-        if (len(current_sample) >= width):
-            data_index += 1
-            current_sample = current_sample[int(len(current_sample) * (1.0-percent_overlap)):] ###
-    num_samples = data_index
-    num_lines = line_count
+# Source: http://stackoverflow.com/questions/4119070/how-to-divide-a-list-into-n-equal-parts-python
+def slice_list(input, size):
+    input_size = len(input)
+    slice_size = input_size / size
+    remain = input_size % size
+    result = []
+    iterator = iter(input)
+    for i in range(size):
+        result.append([])
+        for j in range(slice_size):
+            result[i].append(iterator.next())
+        if remain:
+            result[i].append(iterator.next())
+            remain -= 1
+    return result
 
-print("Number of data points: {}".format(num_lines))
-print("Number of data samples: {}".format(num_samples))
+def process_data_ours(file_path):
+    sample_list_x = [] # List of lists
+    sample_list_y = [] # List of lists
+    sample_list_z = [] # List of lists
 
-total_size = num_samples * num_channels * height * width
+    current_sample_x = []
+    current_sample_y = []
+    current_sample_z = []
+    with open(file_path, 'r') as f:
+        num_line = 0
+        for line in f:
+            # Skip the first 10 lines
+            if num_line < 5 + 20 * num_seconds_skipped:
+                num_line +=1
+                continue
+            row = line.split(' ')
+            # Skip the indoor localization service data
+            if row[0] == '+':
+                continue
+            # Skip empty line
+            if row[0] == '\n':
+                continue
 
-# Shuffle! Not applied until end of the for-loop
-shuffled_index = range(num_samples)
-if to_shuffle:
-    shuffle(shuffled_index)
+            current_sample_x.append(float(row[1]) * 10)
+            current_sample_y.append(float(row[2]) * 10)
+            current_sample_z.append(float(row[3]) * 10)
+            if (len(current_sample_x) >= width):
+                sample_list_x.append(current_sample_x)
+                sample_list_y.append(current_sample_y)
+                sample_list_z.append(current_sample_z)
+                current_sample_x = current_sample_x[int(len(current_sample_x) * (1.0-percent_overlap)):]
+                current_sample_y = current_sample_y[int(len(current_sample_y) * (1.0-percent_overlap)):]
+                current_sample_z = current_sample_z[int(len(current_sample_z) * (1.0-percent_overlap)):]
 
-# Process each channel
-for channel in channels:
-    print("Channel " + channel)
-    output_name = dataset_prefix + channel
+    return sample_list_x, sample_list_y, sample_list_z
 
-    data = np.arange(total_size)
-    data = data.reshape(num_samples, num_channels, height, width)
-    data = data.astype('float32')
 
-    data_label = 1 + np.arange(num_samples)[:, np.newaxis]
-    data_label = data_label.astype('int32')
+def process_data_theirs(data_path):
+    sample_list_x = [] # List of lists
+    sample_list_y = [] # List of lists
+    sample_list_z = [] # List of lists
 
-    # This list stores all current_sample (huge!)
-    sample_list = [] # List of lists
-    label_list  = [] # List
+    current_sample_x = []
+    current_sample_y = []
+    current_sample_z = []
 
-    # Segment points to samples
+    label_list  = []
+
     with open(data_path, 'rt') as f:
         reader = csv.reader(f)
         prev_label = " "
-        current_sample = []
         for row in reader:
             if not row:
                 continue
             user_id = int(row[0])
-            label = row[1]
+            label = label_dict[row[1]]
             x = float(row[3])
             y = float(row[4])
             z = float(row[5])
@@ -96,46 +110,217 @@ for channel in channels:
             # Reset when new label is found
             if (prev_label != label):
                 prev_label = label
-                current_sample = []
+                current_sample_x = []
+                current_sample_y = []
+                current_sample_z = []
 
-            if (channel == 'x'):
-                current_sample.append(x)
-            elif (channel == 'y'):
-                current_sample.append(y)
-            elif (channel == 'z'):
-                current_sample.append(z)
-            else:
-                print("ERROR: no invalid channel")
-                sys.exit()
+            current_sample_x.append(x)
+            current_sample_y.append(y)
+            current_sample_z.append(z)
 
             # Store when we have the length
-            if (len(current_sample) >= width):
-                sample_list.append(current_sample)
+            if (len(current_sample_x) >= width):
+                sample_list_x.append(current_sample_x)
+                sample_list_y.append(current_sample_y)
+                sample_list_z.append(current_sample_z)
                 label_list.append(label)
-                # Shrink current sample based on the overlap ratio
-                current_sample = current_sample[int(len(current_sample) * (1.0-percent_overlap)):]
-        # print(data_index)
 
-    data_index = 0
-    channel_index = 0
+                # Retain only certain overlap percentages of the sample
+                current_sample_x = current_sample_x[int(len(current_sample_x) * (1.0-percent_overlap)):]
+                current_sample_y = current_sample_y[int(len(current_sample_y) * (1.0-percent_overlap)):]
+                current_sample_z = current_sample_z[int(len(current_sample_z) * (1.0-percent_overlap)):]
 
-    # Shuffle after segmenting points into samples
+    return sample_list_x, sample_list_y, sample_list_z, label_list
+
+# Find the mean for each dimension of the samples
+# Returns a vector of means with dim same as the data
+def find_mean(sample_list):
+    if not sample_list:
+        return []
+
+    mean_list = [0] * len(sample_list[0])
+    for sample in sample_list:
+        mean_list = map(sum, zip(mean_list, sample))
+
+    return (np.array(mean_list) / len(sample_list)).tolist()
+
+
+def main():
+    # Load our data stuff
+    project_root = "/home/users/wxie/activity/"
+    hdf5_path = project_root + 'hdf5/'
+    our_data_path = project_root + "data/test/"
+
+    # Load in our data
+    our_data_dict = {
+        our_data_path + "will/walking.txt": label_dict["Walking"],
+        our_data_path + "will/stairs_down_down_in_gdc_side.txt": label_dict["Downstairs"],
+        our_data_path + "will/stairs_up_down_in_gdc_side.txt": label_dict["Upstairs"],
+        our_data_path + "will/using_phone.txt":label_dict["Standing"],
+        our_data_path + "richard/walking_long.txt":label_dict["Walking"],
+        our_data_path + "richard/walking_long_2.txt":label_dict["Walking"],
+        our_data_path + "richard/stairs_up_long.txt":label_dict["Upstairs"],
+        our_data_path + "richard/stairs_down_long.txt":label_dict["Downstairs"],
+    }
+
+    our_sample_list_x = []
+    our_sample_list_y = []
+    our_sample_list_z = []
+    our_label_list    = []
+    for key, value in our_data_dict.iteritems():
+        sample_list_x, sample_list_y, sample_list_z = process_data_ours(key)
+        our_sample_list_x.extend(sample_list_x)
+        our_sample_list_y.extend(sample_list_y)
+        our_sample_list_z.extend(sample_list_z)
+        our_label_list.extend([value] * len(sample_list_x))
+    # End of our data
+
+    # Load actitracker data
+    sample_list_x, sample_list_y, sample_list_z, label_list = process_data_theirs(data_path)
+
+    print(len(sample_list_x))
+    print(len(sample_list_y))
+    print(len(sample_list_z))
+    print(len(label_list))
+    print()
+    # Merge both datasets
+    if (merge_datasets):
+        sample_list_x.extend(our_sample_list_x)
+        sample_list_y.extend(our_sample_list_y)
+        sample_list_z.extend(our_sample_list_z)
+        label_list.extend(our_label_list)
+
+    num_samples = len(label_list)
+
+    print(len(sample_list_x))
+    print(len(sample_list_y))
+    print(len(sample_list_z))
+    print(len(label_list))
+    # Calculate HDF5 shape
+    total_size = num_samples * num_channels * height * width
+    print("Total size: {} ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
+
+
+    # Zero mean
+    mean_x = find_mean(sample_list_x)
+    mean_y = find_mean(sample_list_y)
+    mean_z = find_mean(sample_list_z)
+    for i in range(len(sample_list_x)):
+        sample_list_x[i][:] = np.subtract(sample_list_x[i], mean_x).tolist()
+        sample_list_y[i][:] = np.subtract(sample_list_y[i], mean_y).tolist()
+        sample_list_z[i][:] = np.subtract(sample_list_z[i], mean_z).tolist()
+
+
+    # Shuffle!
+    shuffled_index = range(num_samples)
+    if to_shuffle:
+        shuffle(shuffled_index)
+
+    sample_list_shuffled_x = []
+    sample_list_shuffled_y = []
+    sample_list_shuffled_z = []
+    label_list_shuffled  = []
     for i in shuffled_index:
-        data[data_index][channel_index][0] = np.array(sample_list[i])
-        data_label[data_index] = np.array([label_dict[label_list[i]]])
-        data_index += 1
-
-    print(data.shape)
-    print(data_label.shape)
-
-    # Save
-    with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
-        f['data_' + channel] = data
-        f['label_' + channel] = data_label
-
-    with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
-        f.write(file_dir + '/../' + output_name + '_data.h5\n')
+        sample_list_shuffled_x.append(sample_list_x[i])
+        sample_list_shuffled_y.append(sample_list_y[i])
+        sample_list_shuffled_z.append(sample_list_z[i])
+        label_list_shuffled.append(label_list[i])
 
 
+    print("Shuffled size: {} ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
 
-print("Done.")
+    # Do 5-fold divide
+    sample_list_folds_x = slice_list(sample_list_shuffled_x, 5)
+    sample_list_folds_y = slice_list(sample_list_shuffled_y, 5)
+    sample_list_folds_z = slice_list(sample_list_shuffled_z, 5)
+    label_list_folds  = slice_list(label_list_shuffled, 5)
+
+    # Save data in HDFS format
+    for i in range(len(label_list_folds)):
+        print("Fold {}".format(i))
+        train_fold_index_list = range(len(label_list_folds))
+        train_fold_index_list.pop(i)
+
+        train_x = []
+        train_y = []
+        train_z = []
+        train_label = []
+        for j in train_fold_index_list:
+            train_x.extend(sample_list_folds_x[j])
+            train_y.extend(sample_list_folds_y[j])
+            train_z.extend(sample_list_folds_z[j])
+            train_label.extend(label_list_folds[j])
+
+        print("Train: {}\t Test: {}".format(len(train_label), len(label_list_folds[i])))
+
+        channel_index = 0
+
+        # Train
+        # (num_samples, num_channels, height, width)
+        data = np.arange(len(train_label) * num_channels * height * width)
+        data = data.reshape(len(train_label), num_channels, height, width)
+        data = data.astype('float32')
+
+        data_label = 1 + np.arange(len(train_label))[:, np.newaxis]
+        data_label = data_label.astype('int32')
+
+        channel_dict = {
+            'x':train_x,
+            'y':train_y,
+            'z':train_z
+        }
+        for channel, channel_list in channel_dict.iteritems():
+            output_path = str(i) + '/' + dataset_prefix + channel
+            for j in range(len(train_label)):
+                data[j][channel_index][0] = np.array(channel_list[j])
+                data_label[j] = np.array([train_label[j]])
+
+            with h5py.File(hdf5_path + output_path + '_data.h5', 'w') as f:
+                f['data_' + channel] = data
+                f['label_' + channel] = data_label
+            with open(hdf5_path + output_path + '_data_list.txt', 'w') as f:
+                f.write(hdf5_path + output_path + '_data.h5\n')
+            print(data.shape)
+            print(data_label.shape)
+
+        # Test
+        # (num_samples, num_channels, height, width)
+        test = np.arange(len(label_list_folds[i]) * num_channels * height * width)
+        test = test.reshape(len(label_list_folds[i]), num_channels, height, width)
+        test = test.astype('float32')
+
+        test_label = 1 + np.arange(len(label_list_folds[i]))[:, np.newaxis]
+        test_label = test_label.astype('int32')
+
+        channel_dict = {
+            'x':sample_list_folds_x[i],
+            'y':sample_list_folds_y[i],
+            'z':sample_list_folds_z[i]
+        }
+        for channel, channel_list in channel_dict.iteritems():
+            output_path = str(i) + '/' + dataset_prefix + channel
+            for j in range(len(label_list_folds)):
+                test[j][channel_index][0] = np.array(channel_list[j])
+                test_label[j] = np.array([train_label[j]])
+
+            with h5py.File(hdf5_path + output_path + '_test.h5', 'w') as f:
+                f['data_' + channel] = test
+                f['label_' + channel] = test_label
+            with open(hdf5_path + output_path + '_test_list.txt', 'w') as f:
+                f.write(hdf5_path + output_path + '_test.h5\n')
+            print(test.shape)
+            print(test_label.shape)
+
+
+    # # Save
+    # with h5py.File(file_dir + '/../' + output_name + '_data.h5', 'w') as f:
+    #     f['data_' + channel] = data
+    #     f['label_' + channel] = data_label
+
+    # with open(file_dir + '/../' + output_name + '_data_list.txt', 'w') as f:
+    #     f.write(file_dir + '/../' + output_name + '_data.h5\n')
+
+    print("Done.")
+
+if __name__ == "__main__":
+    main()
