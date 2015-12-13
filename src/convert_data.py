@@ -4,7 +4,9 @@ import numpy as np
 import h5py
 import csv
 import sys
-from random import shuffle
+import random
+
+SEED = 163
 
 label_dict =  {"Walking":0,
                 "Jogging":1,
@@ -28,9 +30,10 @@ num_channels = 1
 height = 1
 width = 64
 
-# Trim our dataset front because it time to take phone in / out of pocket
+# Trim the front of our dataset a few seconds because it time to take phone in / out of pocket
 num_seconds_skipped = 3
 
+# Evenly slice a list into equal proportions
 # Source: http://stackoverflow.com/questions/4119070/how-to-divide-a-list-into-n-equal-parts-python
 def slice_list(input, size):
     input_size = len(input)
@@ -47,6 +50,7 @@ def slice_list(input, size):
             remain -= 1
     return result
 
+# Process the data in our iphone app format
 def process_data_ours(file_path):
     sample_list_x = [] # List of lists
     sample_list_y = [] # List of lists
@@ -83,7 +87,7 @@ def process_data_ours(file_path):
 
     return sample_list_x, sample_list_y, sample_list_z
 
-
+# Parse actitracker dataset
 def process_data_theirs(data_path):
     sample_list_x = [] # List of lists
     sample_list_y = [] # List of lists
@@ -119,7 +123,7 @@ def process_data_theirs(data_path):
             current_sample_z.append(z)
 
             # Store when we have the length
-            if (len(current_sample_x) >= width):
+            if (len(current_sample_x) == width):
                 sample_list_x.append(current_sample_x)
                 sample_list_y.append(current_sample_y)
                 sample_list_z.append(current_sample_z)
@@ -140,6 +144,7 @@ def find_mean(sample_list):
 
     mean_list = [0] * len(sample_list[0])
     for sample in sample_list:
+        # Element-wise sum
         mean_list = map(sum, zip(mean_list, sample))
 
     return (np.array(mean_list) / len(sample_list)).tolist()
@@ -168,6 +173,7 @@ def main():
     our_sample_list_z = []
     our_label_list    = []
     for key, value in our_data_dict.iteritems():
+        # Each file as data for only one class
         sample_list_x, sample_list_y, sample_list_z = process_data_ours(key)
         our_sample_list_x.extend(sample_list_x)
         our_sample_list_y.extend(sample_list_y)
@@ -178,13 +184,15 @@ def main():
     # Load actitracker data
     sample_list_x, sample_list_y, sample_list_z, label_list = process_data_theirs(data_path)
 
-    print(len(sample_list_x))
-    print(len(sample_list_y))
-    print(len(sample_list_z))
-    print(len(label_list))
-    print()
+    # print(len(sample_list_x))
+    # print(len(sample_list_y))
+    # print(len(sample_list_z))
+    # print(len(label_list))
+    # print()
+
     # Merge both datasets
     if (merge_datasets):
+        print("Merge two datasets")
         sample_list_x.extend(our_sample_list_x)
         sample_list_y.extend(our_sample_list_y)
         sample_list_z.extend(our_sample_list_z)
@@ -192,29 +200,32 @@ def main():
 
     num_samples = len(label_list)
 
-    print(len(sample_list_x))
-    print(len(sample_list_y))
-    print(len(sample_list_z))
-    print(len(label_list))
+    # print(len(sample_list_x))
+    # print(len(sample_list_y))
+    # print(len(sample_list_z))
+    # print(len(label_list))
+
     # Calculate HDF5 shape
     total_size = num_samples * num_channels * height * width
-    print("Total size: {} ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
-
+    print("Total size: {} \t HDF5 shape: ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
 
     # Zero mean
     mean_x = find_mean(sample_list_x)
     mean_y = find_mean(sample_list_y)
     mean_z = find_mean(sample_list_z)
+    print("Subtracting mean...")
     for i in range(len(sample_list_x)):
         sample_list_x[i][:] = np.subtract(sample_list_x[i], mean_x).tolist()
         sample_list_y[i][:] = np.subtract(sample_list_y[i], mean_y).tolist()
         sample_list_z[i][:] = np.subtract(sample_list_z[i], mean_z).tolist()
 
-
     # Shuffle!
+    random.seed(SEED)
     shuffled_index = range(num_samples)
     if to_shuffle:
-        shuffle(shuffled_index)
+        print("Shuffling...")
+        random.shuffle(shuffled_index)
+    print (shuffled_index)
 
     sample_list_shuffled_x = []
     sample_list_shuffled_y = []
@@ -227,7 +238,7 @@ def main():
         label_list_shuffled.append(label_list[i])
 
 
-    print("Shuffled size: {} ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
+    print("Shuffled size: {} \t Shape: ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
 
     # Do 5-fold divide
     sample_list_folds_x = slice_list(sample_list_shuffled_x, 5)
@@ -235,12 +246,15 @@ def main():
     sample_list_folds_z = slice_list(sample_list_shuffled_z, 5)
     label_list_folds  = slice_list(label_list_shuffled, 5)
 
+
     # Save data in HDFS format
+    print("{} fold cross validation setup".format(len(label_list_folds)))
     for i in range(len(label_list_folds)):
         print("Fold {}".format(i))
         train_fold_index_list = range(len(label_list_folds))
         train_fold_index_list.pop(i)
 
+        # Merging all training sets together
         train_x = []
         train_y = []
         train_z = []
@@ -251,17 +265,29 @@ def main():
             train_z.extend(sample_list_folds_z[j])
             train_label.extend(label_list_folds[j])
 
-        print("Train: {}\t Test: {}".format(len(train_label), len(label_list_folds[i])))
+
+        test_x = []
+        test_y = []
+        test_z = []
+        test_label = []
+
+        test_x.extend(sample_list_folds_x[i])
+        test_y.extend(sample_list_folds_y[i])
+        test_z.extend(sample_list_folds_z[i])
+        test_label.extend(label_list_folds[i])
+
+        print("Train size: {}\t Test size: {}".format(len(train_label), len(test_label)))
 
         channel_index = 0
 
+        # Formatting to HDF5
         # Train
         # (num_samples, num_channels, height, width)
         data = np.arange(len(train_label) * num_channels * height * width)
         data = data.reshape(len(train_label), num_channels, height, width)
         data = data.astype('float32')
 
-        data_label = 1 + np.arange(len(train_label))[:, np.newaxis]
+        data_label = np.arange(len(train_label))[:, np.newaxis]
         data_label = data_label.astype('int32')
 
         channel_dict = {
@@ -283,33 +309,63 @@ def main():
             print(data.shape)
             print(data_label.shape)
 
+
         # Test
         # (num_samples, num_channels, height, width)
-        test = np.arange(len(label_list_folds[i]) * num_channels * height * width)
-        test = test.reshape(len(label_list_folds[i]), num_channels, height, width)
+        print(len(test_label))
+        test = np.arange(len(test_label) * num_channels * height * width)
+        test = test.reshape(len(test_label), num_channels, height, width)
         test = test.astype('float32')
 
-        test_label = 1 + np.arange(len(label_list_folds[i]))[:, np.newaxis]
+        test_label = np.arange(len(test_label))[:, np.newaxis]
         test_label = test_label.astype('int32')
 
         channel_dict = {
-            'x':sample_list_folds_x[i],
-            'y':sample_list_folds_y[i],
-            'z':sample_list_folds_z[i]
+            'x':test_x,
+            'y':test_y,
+            'z':test_z
         }
         for channel, channel_list in channel_dict.iteritems():
             output_path = str(i) + '/' + dataset_prefix + channel
-            for j in range(len(label_list_folds)):
+            for j in range(len(test_label)):
                 test[j][channel_index][0] = np.array(channel_list[j])
-                test_label[j] = np.array([train_label[j]])
+                test_label[j] = np.array([test_label[j]])
 
-            with h5py.File(hdf5_path + output_path + '_test.h5', 'w') as f:
+            with h5py.File(hdf5_path + output_path + '_data.h5', 'w') as f:
                 f['data_' + channel] = test
                 f['label_' + channel] = test_label
-            with open(hdf5_path + output_path + '_test_list.txt', 'w') as f:
-                f.write(hdf5_path + output_path + '_test.h5\n')
+            with open(hdf5_path + output_path + '_data_list.txt', 'w') as f:
+                f.write(hdf5_path + output_path + '_data.h5\n')
             print(test.shape)
             print(test_label.shape)
+
+        # # Test
+        # # (num_samples, num_channels, height, width)
+        # test = np.arange(len(label_list_folds[i]) * num_channels * height * width)
+        # test = test.reshape(len(label_list_folds[i]), num_channels, height, width)
+        # test = test.astype('float32')
+
+        # test_label = np.arange(len(label_list_folds[i]))[:, np.newaxis]
+        # test_label = test_label.astype('int32')
+
+        # channel_dict = {
+        #     'x':sample_list_folds_x[i],
+        #     'y':sample_list_folds_y[i],
+        #     'z':sample_list_folds_z[i]
+        # }
+        # for channel, channel_list in channel_dict.iteritems():
+        #     output_path = str(i) + '/' + dataset_prefix + channel
+        #     for j in range(len(label_list_folds)):
+        #         test[j][channel_index][0] = np.array(channel_list[j])
+        #         test_label[j] = np.array([label_list_folds[i][j]])
+
+        #     with h5py.File(hdf5_path + output_path + '_test.h5', 'w') as f:
+        #         f['data_' + channel] = test
+        #         f['label_' + channel] = test_label
+        #     with open(hdf5_path + output_path + '_test_list.txt', 'w') as f:
+        #         f.write(hdf5_path + output_path + '_test.h5\n')
+        #     print(test.shape)
+        #     print(test_label.shape)
 
 
     # # Save
