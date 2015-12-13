@@ -5,19 +5,22 @@ import h5py
 import csv
 import sys
 import random
+import caffe
 
 SEED = 163
 
 label_dict =  {"Walking":0,
-                "Jogging":1,
-                "Sitting":2,
-                "Standing":3,
-                "Upstairs":4,
-                "Downstairs":5 }
+               "Jogging":1,
+               "Sitting":2,
+               "Standing":3,
+               "Upstairs":4,
+               "Downstairs":5 }
+
 channels = ['x', 'y', 'z']
 data_path = "/home/users/wxie/activity/data/actitracker.txt"
 dataset_prefix = 'actitracker_'
 to_shuffle = True
+zero_mean = True
 merge_datasets = False
 
 # Percent overlap between subsequent samples
@@ -190,6 +193,49 @@ def main():
     # print(len(label_list))
     # print()
 
+
+    ##############################
+    # Testing code
+    ##############################
+
+    caffe_root = '../'
+
+    # Setup net and weight
+    net = caffe.Net(caffe_root + 'activitynet_deploy_1024_30_6_dropout.prototxt',
+                    caffe_root + 'model_1024_30_6_with_dropout/actitracker_iter_300000.caffemodel',
+                    caffe.TEST)
+
+    class_bin = {}
+    for i in range(len(our_label_list)):
+        # Create bins
+        if our_label_list[i] not in class_bin:
+            class_bin[our_label_list[i]] = [0.0] * len(label_dict)
+
+        net.blobs['data_x'].data[...] = np.array(our_sample_list_x[i])
+        net.blobs['data_y'].data[...] = np.array(our_sample_list_y[i])
+        net.blobs['data_z'].data[...] = np.array(our_sample_list_z[i])
+
+        out = net.forward()
+        # print("Predicted class is #{}.".format(out['prob'][0].argmax()))
+        # print(out['prob'][0])
+
+        for key, value in label_dict.iteritems():
+            if value == out['prob'][0].argmax():
+                # print("Predicted class is #{}.".format(out['prob'][0].argmax()))
+                # print("Predicted class is " + str(key))
+                class_bin[our_label_list[i]][value] += 1
+                # print(out['prob'][0])
+
+    for key, value in class_bin.iteritems():
+        class_dist = np.array(value)
+        class_dist = class_dist / np.sum(class_dist)
+        value[:] = class_dist.tolist()
+
+    print (class_bin)
+
+    # exit(0)
+    ##############################
+
     # Merge both datasets
     if (merge_datasets):
         print("Merge two datasets")
@@ -210,14 +256,15 @@ def main():
     print("Total size: {} \t HDF5 shape: ({}, {}, {}, {})".format(total_size, num_samples, num_channels, height, width))
 
     # Zero mean
-    mean_x = find_mean(sample_list_x)
-    mean_y = find_mean(sample_list_y)
-    mean_z = find_mean(sample_list_z)
-    print("Subtracting mean...")
-    for i in range(len(sample_list_x)):
-        sample_list_x[i][:] = np.subtract(sample_list_x[i], mean_x).tolist()
-        sample_list_y[i][:] = np.subtract(sample_list_y[i], mean_y).tolist()
-        sample_list_z[i][:] = np.subtract(sample_list_z[i], mean_z).tolist()
+    if zero_mean:
+        mean_x = find_mean(sample_list_x)
+        mean_y = find_mean(sample_list_y)
+        mean_z = find_mean(sample_list_z)
+        print("Subtracting mean...")
+        for i in range(len(sample_list_x)):
+            sample_list_x[i][:] = np.subtract(sample_list_x[i], mean_x).tolist()
+            sample_list_y[i][:] = np.subtract(sample_list_y[i], mean_y).tolist()
+            sample_list_z[i][:] = np.subtract(sample_list_z[i], mean_z).tolist()
 
     # Shuffle!
     random.seed(SEED)
@@ -225,7 +272,6 @@ def main():
     if to_shuffle:
         print("Shuffling...")
         random.shuffle(shuffled_index)
-    print (shuffled_index)
 
     sample_list_shuffled_x = []
     sample_list_shuffled_y = []
@@ -279,6 +325,34 @@ def main():
         print("Train size: {}\t Test size: {}".format(len(train_label), len(test_label)))
 
         channel_index = 0
+
+        ##############################
+        # Testing code
+        ##############################
+        # caffe_root = '../'
+
+        # # Setup net and weight
+        # net = caffe.Net(caffe_root + 'hdf5/0/activitynet_deploy_1024_30_6_dropout.prototxt',
+        #                 caffe_root + 'hdf5/0/snapshots/actitracker_iter_50000.caffemodel',
+        #                 caffe.TEST)
+        # for i in range(len(test_label)):
+        #     net.blobs['data_x'].data[...] = np.array(test_x[i])
+        #     net.blobs['data_y'].data[...] = np.array(test_y[i])
+        #     net.blobs['data_z'].data[...] = np.array(test_z[i])
+
+        #     out = net.forward()
+        #     # print("Predicted class is #{}.".format(out['prob'][0].argmax()))
+        #     # print(out['prob'][0])
+
+        #     for key, value in label_dict.iteritems():
+        #         if value == out['prob'][0].argmax():
+        #             # print("Predicted class is #{}.".format(out['prob'][0].argmax()))
+        #             print("Predicted class is " + key)
+        #             # print(out['prob'][0])
+
+        # exit(0)
+
+        ##############################
 
         # Formatting to HDF5
         # Train
